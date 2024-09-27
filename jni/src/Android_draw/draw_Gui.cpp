@@ -4,7 +4,8 @@
 bool permeate_record = false;
 bool permeate_record_ini = false;
 struct Last_ImRect LastCoordinate = {0, 0, 0, 0};
-
+std::atomic<bool> Recording{};
+float 录制时长{1};
 static uint32_t orientation = -1;
 ANativeWindow *window;
 // 屏幕信息
@@ -21,6 +22,13 @@ ImFont *zh_font = NULL;
 ImFont *icon_font_0 = NULL;
 ImFont *icon_font_1 = NULL;
 ImFont *icon_font_2 = NULL;
+
+void recordScreen(int duration) {
+	std::string command = "screenrecord --time-limit " + std::to_string(duration) + " \"" + "/sdcard/record.mp4" + "\"";
+	Recording = true;
+	system(command.c_str());
+	Recording = false;
+}
 
 bool M_Android_LoadFont(float SizePixels)
 {
@@ -68,7 +76,6 @@ void drawBegin()
         // cout << " width:" << displayInfo.width << " height:" << displayInfo.height << " orientation:" << displayInfo.orientation << endl;
     }
 }
-
 void Layout_tick_UI(bool *main_thread_flag)
 {
     static bool show_draw_Line = false;
@@ -85,10 +92,10 @@ void Layout_tick_UI(bool *main_thread_flag)
         }
 
         ImGui::Text("默认功能全开，开关自己写(懒...)");
-
+        
         ImGui::SliderInt("每帧遍历次数", &MaxCount, 5, 30);
-
-        if (ImGui::Button("初始化"))
+        ImGui::SliderFloat("录制时长(分)", &录制时长, 0.1f, 10.f, "%.1f");
+        if (ImGui::Button("开启"))
         {
             init_esp(::abs_ScreenX / 2, ::abs_ScreenY / 2);
         }
@@ -97,7 +104,18 @@ void Layout_tick_UI(bool *main_thread_flag)
         {
             system("screencap -p /sdcard/screenshot.png");
         }
-
+        if (!Recording) {
+        if (ImGui::Button("开始录屏")) {
+			std::thread(recordScreen, (int) (录制时长 * 60)).detach();
+			std::cout << "开始录制..." << std::endl;
+		}} else {
+		if (ImGui::Button("结束录屏")) {
+			std::cout << "停止录制..." << std::endl;
+			system("pkill -l2 screenrecord");
+			std::cout << "录制已停止." << std::endl;
+			Recording = false;
+			}
+		}
         if (ImGui::Checkbox("过录制", &::permeate_record))
         {
             ::permeate_record_ini = true;
